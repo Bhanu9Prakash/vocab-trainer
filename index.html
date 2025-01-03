@@ -302,14 +302,21 @@
     /* Modal Styles */
     .modal {
       display: none;
+      /* Hidden by default */
       position: fixed;
+      /* Stay in place */
       z-index: 1000;
+      /* Sit on top */
       left: 0;
       top: 0;
       width: 100%;
+      /* Full width */
       height: 100%;
+      /* Full height */
       overflow: auto;
+      /* Enable scroll if needed */
       background-color: var(--modal-bg);
+      /* Black w/ opacity */
       justify-content: center;
       align-items: center;
       animation: fadeIn 0.3s;
@@ -456,17 +463,18 @@
       margin-top: 1rem;
     }
 
-    /* Language Notes Card */
-    .language-notes {
+    /* Pagination */
+    .pagination {
       display: flex;
-      flex-direction: column;
       gap: 0.5rem;
+      justify-content: center;
+      align-items: center;
+      margin-top: 1rem;
     }
 
-    .language-notes textarea {
-      width: 100%;
-      min-height: 80px;
-      resize: vertical;
+    .pagination button {
+      font-size: 0.9rem;
+      padding: 0.3rem 0.6rem;
     }
   </style>
 </head>
@@ -542,15 +550,6 @@
         </div>
       </div>
 
-      <!-- Language Notes Card -->
-      <div class="card">
-        <h2>Language Notes</h2>
-        <div class="language-notes">
-          <textarea id="languageNotes" placeholder="Enter reference notes for this language..."></textarea>
-          <button onclick="saveLanguageNotes()">Save Notes</button>
-        </div>
-      </div>
-
       <div class="card">
         <h2>Add New Word</h2>
         <input type="text" id="foreignWord" placeholder="Foreign Word" />
@@ -574,7 +573,10 @@
             <option value="">All Tags</option>
           </select>
         </div>
+        <!-- Word list container -->
         <div id="wordList" class="word-list"></div>
+        <!-- Pagination controls -->
+        <div id="paginationControls" class="pagination"></div>
       </div>
 
       <div class="card">
@@ -717,9 +719,9 @@
   </div>
 
   <script>
-    /* =====================================================
-       JAVASCRIPT CODE FOR MULTI-PAGE-LIKE UI & FEATURES
-       ===================================================== */
+    /* =====================================
+       JAVASCRIPT FOR PAGINATED WORD LIST
+       ===================================== */
 
     // Global variables
     let currentLanguage = '';
@@ -733,11 +735,14 @@
     let accuracyChartInstance = null;
     let categoryChartInstance = null;
 
+    // For pagination
+    let currentPage = 1;
+    const pageSize = 10; // words per page
+
     // Initialize localStorage if empty
     if (!localStorage.getItem('languages')) {
       localStorage.setItem('languages', JSON.stringify({}));
     }
-    // We'll store tag colors in localStorage as well, to keep them consistent
     if (!localStorage.getItem('tagColors')) {
       localStorage.setItem('tagColors', JSON.stringify({}));
     }
@@ -761,13 +766,11 @@
       releaseFocus();
     }
 
-    // Random pastel color generator for tags
     function getRandomPastelColor() {
       const hue = Math.floor(Math.random() * 360);
       return `hsl(${hue}, 70%, 85%)`;
     }
 
-    // Assign a color to each tag, store in localStorage for consistency
     function getTagColor(tag) {
       let tagColors = JSON.parse(localStorage.getItem('tagColors'));
       if (!tagColors[tag]) {
@@ -854,8 +857,7 @@
           streak: 0,
           badges: [],
           practiceDates: [],
-          practiceScores: [],
-          languageNotes: '' // We'll store language-level notes here
+          practiceScores: []
         },
       };
       localStorage.setItem('languages', JSON.stringify(languages));
@@ -896,29 +898,13 @@
         <a href="#" onclick="showMainMenu()">Home</a> > ${language}
       `;
       updateStats();
+      currentPage = 1; // Reset to first page
       updateWordList();
       updateTagFilters();
       populatePracticeTagFilter();
       updateTagSuggestions();
       updateEditTagSuggestions();
       updateBadges();
-      loadLanguageNotes(); // load any existing notes for this language
-    }
-
-    // ========== Language Notes ==========
-
-    function loadLanguageNotes() {
-      const languages = JSON.parse(localStorage.getItem('languages'));
-      const notes = languages[currentLanguage].stats.languageNotes || '';
-      document.getElementById('languageNotes').value = notes;
-    }
-
-    function saveLanguageNotes() {
-      const notesVal = document.getElementById('languageNotes').value.trim();
-      const languages = JSON.parse(localStorage.getItem('languages'));
-      languages[currentLanguage].stats.languageNotes = notesVal;
-      localStorage.setItem('languages', JSON.stringify(languages));
-      openSuccessModal('Language notes saved successfully.');
     }
 
     // ========== Word Management ==========
@@ -946,17 +932,17 @@
         english: englishWord,
         tags,
         notes,
-        date: new Date().toISOString(),
+        date: new Date().toISOString()
       });
       localStorage.setItem('languages', JSON.stringify(languages));
 
-      // Clear inputs
       document.getElementById('foreignWord').value = '';
       document.getElementById('englishWord').value = '';
       document.getElementById('wordTags').value = '';
       document.getElementById('wordNotes').value = '';
-
       updateStats();
+      // Reset to page 1 whenever we add a word
+      currentPage = 1;
       updateWordList();
       updateTagFilters();
       populatePracticeTagFilter();
@@ -965,19 +951,54 @@
       openSuccessModal(`Word "${foreignWord}" added successfully.`);
     }
 
+    // ========== Pagination Logic for Word List ==========
+    function renderPaginationControls(totalItems) {
+      const paginationDiv = document.getElementById('paginationControls');
+      paginationDiv.innerHTML = '';
+      const totalPages = Math.ceil(totalItems / pageSize);
+
+      // Only show if there's more than one page
+      if (totalPages <= 1) return;
+
+      // Previous button
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = 'Prev';
+      prevBtn.disabled = (currentPage <= 1);
+      prevBtn.onclick = () => {
+        if (currentPage > 1) {
+          currentPage--;
+          updateWordList();
+        }
+      };
+      paginationDiv.appendChild(prevBtn);
+
+      // Page info
+      const pageInfo = document.createElement('span');
+      pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+      paginationDiv.appendChild(pageInfo);
+
+      // Next button
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Next';
+      nextBtn.disabled = (currentPage >= totalPages);
+      nextBtn.onclick = () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          updateWordList();
+        }
+      };
+      paginationDiv.appendChild(nextBtn);
+    }
+
     function updateWordList() {
       const languages = JSON.parse(localStorage.getItem('languages'));
       const words = languages[currentLanguage].words;
       const listElement = document.getElementById('wordList');
       const selectedTag = document.getElementById('tagFilter').value;
-      const searchTerm = document
-        .getElementById('searchWord')
-        .value.trim()
-        .toLowerCase();
-
+      const searchTerm = document.getElementById('searchWord').value.trim().toLowerCase();
       listElement.innerHTML = '';
 
-      // Filter words by tag and search term
+      // Filter
       const filteredWords = words.filter((word) => {
         const matchesTag = selectedTag ? word.tags.includes(selectedTag) : true;
         const matchesSearch =
@@ -988,56 +1009,69 @@
         return matchesTag && matchesSearch;
       });
 
-      if (filteredWords.length === 0) {
-        listElement.innerHTML = '<p>No words to display.</p>';
-        return;
+      // Pagination
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const pagedWords = filteredWords.slice(startIndex, endIndex);
+
+      if (pagedWords.length === 0) {
+        if (filteredWords.length === 0) {
+          listElement.innerHTML = '<p>No words to display.</p>';
+        } else {
+          // If we don't have words on this page, but there are filtered words overall, 
+          // it means we're past the last page. Let's fix that by resetting to page 1.
+          currentPage = 1;
+          updateWordList();
+          return;
+        }
+      } else {
+        pagedWords.forEach((word) => {
+          const actualIndex = languages[currentLanguage].words.indexOf(word);
+          const item = document.createElement('div');
+          item.className = 'word-item';
+
+          const content = document.createElement('div');
+          content.className = 'word-item-content';
+          content.innerHTML = `
+            <div><strong>${word.foreign}</strong> - ${word.english}</div>
+            <div class="word-tags">
+              ${word.tags
+              .map(
+                (tag) => `
+                <span class="tag" style="background: ${getTagColor(tag)};">
+                  ${tag}
+                  <button onclick="removeTag(${actualIndex}, '${tag}')">&times;</button>
+                </span>
+              `
+              )
+              .join('')}
+            </div>
+            <div class="word-notes">
+              ${word.notes ? word.notes : 'No notes.'}
+            </div>
+          `;
+
+          const actionButtons = document.createElement('div');
+          actionButtons.className = 'action-buttons';
+
+          const editButton = document.createElement('button');
+          editButton.textContent = 'Edit';
+          editButton.className = 'edit-btn';
+          editButton.onclick = () => openEditWordModal(actualIndex);
+          actionButtons.appendChild(editButton);
+
+          const deleteButton = document.createElement('button');
+          deleteButton.textContent = 'Delete';
+          deleteButton.className = 'delete-btn';
+          deleteButton.onclick = () => deleteWord(actualIndex);
+          actionButtons.appendChild(deleteButton);
+
+          item.appendChild(content);
+          item.appendChild(actionButtons);
+          listElement.appendChild(item);
+        });
       }
-
-      filteredWords.forEach((word) => {
-        const actualIndex = languages[currentLanguage].words.indexOf(word);
-        const item = document.createElement('div');
-        item.className = 'word-item';
-
-        const content = document.createElement('div');
-        content.className = 'word-item-content';
-        content.innerHTML = `
-          <div><strong>${word.foreign}</strong> - ${word.english}</div>
-          <div class="word-tags">
-            ${word.tags
-            .map(
-              (tag) => `
-              <span class="tag" style="background: ${getTagColor(tag)};">
-                ${tag}
-                <button onclick="removeTag(${actualIndex}, '${tag}')">&times;</button>
-              </span>
-            `
-            )
-            .join('')}
-          </div>
-          <div class="word-notes">
-            ${word.notes ? word.notes : 'No notes.'}
-          </div>
-        `;
-
-        const actionButtons = document.createElement('div');
-        actionButtons.className = 'action-buttons';
-
-        const editButton = document.createElement('button');
-        editButton.textContent = 'Edit';
-        editButton.className = 'edit-btn';
-        editButton.onclick = () => openEditWordModal(actualIndex);
-        actionButtons.appendChild(editButton);
-
-        const deleteButton = document.createElement('button');
-        deleteButton.textContent = 'Delete';
-        deleteButton.className = 'delete-btn';
-        deleteButton.onclick = () => deleteWord(actualIndex);
-        actionButtons.appendChild(deleteButton);
-
-        item.appendChild(content);
-        item.appendChild(actionButtons);
-        listElement.appendChild(item);
-      });
+      renderPaginationControls(filteredWords.length);
     }
 
     function removeTag(wordIndex, tag) {
@@ -1062,12 +1096,19 @@
       localStorage.setItem('languages', JSON.stringify(languages));
 
       updateStats();
+      // Potentially reset page if we're out of range
       updateWordList();
       updateTagFilters();
       populatePracticeTagFilter();
       updateTagSuggestions();
       updateEditTagSuggestions();
       openSuccessModal(`Word "${word.foreign}" deleted successfully.`);
+    }
+
+    function clearSearch() {
+      document.getElementById('searchWord').value = '';
+      currentPage = 1;
+      updateWordList();
     }
 
     // ========== Tag Handling ==========
@@ -1103,7 +1144,7 @@
       const allTags = new Set();
 
       words.forEach((word) => {
-        word.tags.forEach((tag) => allTags.add(tag));
+        word.tags.forEach((t) => allTags.add(t));
       });
 
       const practiceTagFilter = document.getElementById('practiceTagFilter');
@@ -1209,7 +1250,7 @@
         english: englishWord,
         tags,
         notes,
-        date: languages[currentLanguage].words[editingWordIndex].date,
+        date: languages[currentLanguage].words[editingWordIndex].date
       };
       localStorage.setItem('languages', JSON.stringify(languages));
 
@@ -1305,23 +1346,20 @@
           streak: 0,
           badges: [],
           practiceDates: [],
-          practiceScores: [],
-          languageNotes: ''
+          practiceScores: []
         },
       };
       localStorage.setItem('languages', JSON.stringify(languages));
 
       updateStats();
+      currentPage = 1;
       updateWordList();
       updateTagFilters();
       populatePracticeTagFilter();
       updateTagSuggestions();
       updateEditTagSuggestions();
-      updateBadges();
       closeResetLanguageModal();
-      openSuccessModal(
-        `All data for the language "${currentLanguage}" has been reset.`
-      );
+      openSuccessModal(`All data for the language "${currentLanguage}" has been reset.`);
     }
 
     // ========== Export / Import Data ==========
@@ -1349,13 +1387,9 @@
           const importedData = JSON.parse(e.target.result);
           const languages = JSON.parse(localStorage.getItem('languages'));
 
-          // Merge imported data
           for (const [lang, data] of Object.entries(importedData)) {
             if (languages[lang]) {
-              // Merge words
               languages[lang].words = languages[lang].words.concat(data.words);
-
-              // Merge stats
               languages[lang].stats.totalSessions += data.stats.totalSessions;
               languages[lang].stats.totalScore += data.stats.totalScore;
 
@@ -1374,25 +1408,14 @@
                   stats.total;
               }
 
-              // Merge streak
               if (data.stats.streak) {
                 languages[lang].stats.streak += data.stats.streak;
               }
 
-              // Merge badges
               languages[lang].stats.badges = Array.from(
                 new Set([...languages[lang].stats.badges, ...data.stats.badges])
               );
 
-              // Merge language-level notes
-              if (data.stats.languageNotes) {
-                languages[lang].stats.languageNotes =
-                  data.stats.languageNotes +
-                  '\n' +
-                  (languages[lang].stats.languageNotes || '');
-              }
-
-              // Merge practiceDates and practiceScores
               if (data.stats.practiceDates && data.stats.practiceScores) {
                 languages[lang].stats.practiceDates =
                   languages[lang].stats.practiceDates.concat(
@@ -1411,19 +1434,16 @@
           localStorage.setItem('languages', JSON.stringify(languages));
           if (currentLanguage) {
             updateStats();
+            currentPage = 1;
             updateWordList();
             updateTagFilters();
             populatePracticeTagFilter();
             updateTagSuggestions();
             updateEditTagSuggestions();
-            updateBadges();
-            loadLanguageNotes();
           }
           openSuccessModal('Data imported successfully.');
         } catch (error) {
-          openAlertModal(
-            'Failed to import data. Please ensure the file is valid JSON.'
-          );
+          openAlertModal('Failed to import data. Please ensure the file is valid JSON.');
         }
       };
       reader.readAsText(file);
@@ -1438,7 +1458,6 @@
 
       const now = new Date();
 
-      // Streak logic
       if (language.stats.lastPractice) {
         const lastPracticeDate = new Date(language.stats.lastPractice);
         const diffTime = now - lastPracticeDate;
@@ -1455,7 +1474,6 @@
       }
       document.getElementById('streak').textContent = `${language.stats.streak} days`;
 
-      // Today's score
       if (
         language.stats.lastPractice &&
         new Date(language.stats.lastPractice).toDateString() === now.toDateString()
@@ -1466,18 +1484,14 @@
         document.getElementById('todayScore').textContent = '0%';
       }
 
-      // Total sessions
-      document.getElementById('totalSessions').textContent =
-        language.stats.totalSessions;
+      document.getElementById('totalSessions').textContent = language.stats.totalSessions;
 
-      // Average score
       const avg =
         language.stats.totalSessions > 0
           ? Math.round(language.stats.totalScore / language.stats.totalSessions)
           : 0;
       document.getElementById('averageScore').textContent = `${avg}%`;
 
-      // Category accuracy
       const categoryAccuracyDiv = document.getElementById('categoryAccuracy');
       categoryAccuracyDiv.innerHTML = '';
       const categories = Object.keys(language.stats.categoryStats);
@@ -1498,7 +1512,6 @@
 
       localStorage.setItem('languages', JSON.stringify(languages));
 
-      // Update charts
       updateAccuracyChart();
       updateCategoryChart();
       updateBadges();
@@ -1713,7 +1726,6 @@
       result.innerHTML = '';
       answerContainer.innerHTML = '';
 
-      // Track category stats
       word.tags.forEach((tag) => {
         if (!quizCategoryStats[tag]) {
           quizCategoryStats[tag] = {correct: 0, total: 0};
@@ -1721,17 +1733,15 @@
         quizCategoryStats[tag].total += 1;
       });
 
-      // If mode is "both," random direction
       let questionDirection = 'foreignToEnglish';
       if (mode === 'both') {
         questionDirection = Math.random() < 0.5 ? 'foreignToEnglish' : 'englishToForeign';
       }
 
-      // MCQ or translation logic
+      // MCQ or translation logic for foreign→English
       if ((mode === 'mcq' && questionDirection === 'foreignToEnglish') || (mode === 'both' && questionDirection === 'foreignToEnglish')) {
         questionElement.textContent = `What is the English translation of "${word.foreign}"?`;
 
-        // Generate options
         const options = [word.english];
         const otherWords = languages[currentLanguage].words.filter(
           (w) => w.english !== word.english && (!selectedTag || w.tags.includes(selectedTag))
@@ -1770,7 +1780,7 @@
         answerContainer.appendChild(submitBtn);
       }
 
-      // if 'both' and direction is englishToForeign, we do MCQ for that
+      // if 'both' and direction is english→foreign
       if (mode === 'both' && questionDirection === 'englishToForeign') {
         questionElement.textContent = `What is the foreign translation of "${word.english}"?`;
 
@@ -1830,11 +1840,9 @@
       const languages = JSON.parse(localStorage.getItem('languages'));
       const language = languages[currentLanguage];
 
-      // Update overall stats
       language.stats.totalSessions += 1;
       language.stats.totalScore += score;
 
-      // Update category-wise stats
       for (const [category, stats] of Object.entries(quizCategoryStats)) {
         if (!language.stats.categoryStats[category]) {
           language.stats.categoryStats[category] = {correct: 0, total: 0};
@@ -1843,7 +1851,6 @@
         language.stats.categoryStats[category].total += stats.total;
       }
 
-      // Update streak
       const now = new Date();
       if (language.stats.lastPractice) {
         const lastPracticeDate = new Date(language.stats.lastPractice);
@@ -1859,7 +1866,6 @@
       }
       language.stats.lastPractice = now.toISOString();
 
-      // Update today's score
       language.stats.todayScore = Math.round((score / totalQuestions) * 100);
 
       if (!language.stats.practiceDates) {
@@ -1878,7 +1884,7 @@
       );
     }
 
-    // On initial load
+    // On page load
     document.addEventListener('DOMContentLoaded', () => {
       showMainMenu();
     });
