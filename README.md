@@ -1,4 +1,5 @@
 ## Language Vocabulary Practice
+https://bhanu9prakash.github.io/vocab-trainer/
 
 A **single-page** application for managing languages, words, quizzes, and statistics with a user-friendly, **mobile-ready** interface. This app simulates a multi-page experience (home and language views) without requiring multiple HTML files.
 
